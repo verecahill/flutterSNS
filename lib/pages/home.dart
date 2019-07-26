@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fluttershare/models/user.dart';
+import 'package:fluttershare/pages/create_account.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:fluttershare/pages/timeline.dart';
 import 'package:fluttershare/pages/activity_feed.dart';
@@ -9,6 +12,9 @@ import 'package:fluttershare/pages/search.dart';
 import 'package:fluttershare/pages/profile.dart';
 
 final GoogleSignIn googleSignIn = new GoogleSignIn();
+final usersRef = Firestore.instance.collection("users");
+final DateTime timestamp = DateTime.now();
+User currentUser;
 
 class Home extends StatefulWidget {
   @override
@@ -36,16 +42,18 @@ class _HomeState extends State<Home> {
     });
 
     // Reauthenticate user when app is opened
-    googleSignIn.signInSilently(suppressErrors: false).then((account) {
-      handleSignIn(account);
-    }).catchError((err) {
-      print('Error signing in : $err');
-    });
+    // googleSignIn.isSignedIn().then((value) {
+      googleSignIn.signInSilently(suppressErrors: true).then((account) {
+        handleSignIn(account);
+      }).catchError((err) {
+        print('Error signing in : $err');
+      });
+    // });
   }
 
   handleSignIn(GoogleSignInAccount account) {
     if (account != null) {
-      print('User signed in : $account');
+      createUserInFirestore();
       setState(() {
         isAuth = true;
       });
@@ -54,6 +62,32 @@ class _HomeState extends State<Home> {
         isAuth = false;
       });
     }
+  }
+
+  createUserInFirestore() async {
+    // 1) check if user exists in users collection in database
+    final GoogleSignInAccount user = googleSignIn.currentUser;
+    DocumentSnapshot doc = await usersRef.document(user.id).get();
+
+    if (!doc.exists) {
+      // 2) if the user doesn't exist, go to createa account page
+      final username = await Navigator.push(
+          context, MaterialPageRoute(builder: (context) => CreateAccount()));
+
+      // 3) get username from create account, use it to make new user document in users collection
+      usersRef.document(user.id).setData({
+        "id": user.id,
+        "username": username,
+        "photoUrl": user.photoUrl,
+        "email": user.email,
+        "displayName": user.displayName,
+        "bio": "",
+        "timestamp": timestamp
+      });
+      doc = await usersRef.document(user.id).get();
+    }
+
+    currentUser = User.fromDocument(doc);
   }
 
   @override
@@ -77,16 +111,19 @@ class _HomeState extends State<Home> {
   }
 
   onTap(int pageIndex) {
-    pageController.jumpToPage(
-      pageIndex,
-    );
+    pageController.animateToPage(pageIndex,
+        duration: Duration(milliseconds: 200), curve: Curves.easeInOut);
   }
 
   Scaffold buildAuthScreen() {
     return Scaffold(
       body: PageView(
         children: <Widget>[
-          Timeline(),
+          // Timeline(),
+          RaisedButton(
+            child: Text("Logout"),
+            onPressed: logout,
+          ),
           ActivityFeed(),
           Upload(),
           Search(),
@@ -108,7 +145,10 @@ class _HomeState extends State<Home> {
               icon: Icon(Icons.notifications_active),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.photo_camera, size: 35.0,),
+              icon: Icon(
+                Icons.photo_camera,
+                size: 35.0,
+              ),
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.search),
@@ -118,10 +158,6 @@ class _HomeState extends State<Home> {
             ),
           ]),
     );
-//    return RaisedButton(
-//      child: Text('Logout'),
-//      onPressed: logout,
-//    );
   }
 
   Scaffold buildUnAuthScreen() {
