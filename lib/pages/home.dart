@@ -43,11 +43,11 @@ class _HomeState extends State<Home> {
 
     // Reauthenticate user when app is opened
     // googleSignIn.isSignedIn().then((value) {
-      googleSignIn.signInSilently(suppressErrors: true).then((account) {
-        handleSignIn(account);
-      }).catchError((err) {
-        print('Error signing in : $err');
-      });
+    googleSignIn.signInSilently(suppressErrors: true).then((account) {
+      handleSignIn(account);
+    }).catchError((err) {
+      print('Error signing in : $err');
+    });
     // });
   }
 
@@ -111,8 +111,13 @@ class _HomeState extends State<Home> {
   }
 
   onTap(int pageIndex) {
-    pageController.animateToPage(pageIndex,
-        duration: Duration(milliseconds: 200), curve: Curves.easeInOut);
+    pageController
+    // .animateToPage(pageIndex)
+    .jumpToPage(
+      pageIndex,
+      // duration: Duration(milliseconds: 200),
+      // curve: Curves.easeInOut,
+    );
   }
 
   Scaffold buildAuthScreen() {
